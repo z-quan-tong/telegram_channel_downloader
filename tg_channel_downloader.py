@@ -178,6 +178,8 @@ async def handler(update):
                 file_name = ''
                 # 如果是文件
                 if message.document:
+                    if type(message.media) == MessageMediaWebPage:
+                        continue
                     if message.media.document.mime_type == "image/webp":
                         continue
                     if message.media.document.mime_type == "application/x-tgsticker":
