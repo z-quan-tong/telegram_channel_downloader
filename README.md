@@ -14,7 +14,7 @@ Telegram 频道/群组 文件下载脚本
  git clone https://github.com/snow922841/telegram_channel_downloader.git
  ```
  
- - 安装fclone
+ - 安装fclone（可选）
  ```
  wget https://github.com/mawaya/rclone/releases/download/fclone-v0.4.1/fclone-v0.4.1-linux-amd64.zip -O fclone.zip && unzip fclone.zip && mv fclone*/fclone /usr/bin && chmod +x /usr/bin/fclone && fclone version
  ```
