@@ -50,6 +50,10 @@ Telegram 频道/群组 文件下载脚本
  - 关于获取admin_id
   
   可以在电报中给@get_id_bot这个bot发消息获取
+ 
+ - 关于上传到OneDrive
+  
+  在脚本中找到一下参数：drive_id=''，drive_name='onedrive'， onedrive 就是你配置rclone的时候填的盘名称， 还有102行的fclone替换为rclone，rclone需要自行安装。
 
 <details>
   <summary>点击查看更新日志</summary>
