@@ -109,7 +109,7 @@ async def worker(name):
                 await proc.wait()
                 if proc.returncode == 0:
                     print(f"{get_local_time()} - {file_name} 下载并上传完成")
-        except asyncio.TimeoutError:
+        except (errors.rpc_errors_re.FileReferenceExpiredError, asyncio.TimeoutError):
             logging.warning(f'{get_local_time()} - {file_name} 出现异常，重新尝试下载！')
             async for new_message in client.iter_messages(entity=entity, offset_id=message.id - 1, reverse=True,
                                                           limit=1):
