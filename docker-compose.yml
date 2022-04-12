@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  tg_downloader:
+    image: tg_downloader:latest
+    container_name: tg
+    volumes:
+    - ./src/:/srv/
+    # command: ["python", "tg_channel_downloader.py"]
+    env_file:
+    - .env
