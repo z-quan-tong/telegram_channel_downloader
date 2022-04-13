@@ -10,17 +10,17 @@ from turtle import tilt
 from xmlrpc.client import boolean
 
 from telethon import TelegramClient, events, errors
-from telethon.tl.types import MessageMediaWebPage, PeerChannel
+from telethon.tl.types import MessageMediaWebPage, PeerChannel, User
 
 # ***********************************************************************************#
 # your telegram api id
-api_id = os.getenv('api_id')  
+api_id = int(os.getenv('api_id')  )
 # your telegram api hash
 api_hash = os.getenv('api_hash')
 # your bot_token
 bot_token = os.getenv('bot_token')
 # your chat id
-admin_id = os.getenv('admin_id')
+admin_id = int(os.getenv('admin_id'))
 # file save path
 save_path = os.getenv('save_path')
 # set upload file to google drive; 1/0 => True/False 
@@ -88,36 +88,9 @@ def validate_title(title):
     # 连续多个点合并为一个
     new_title = re.sub(p,'.', new_title)
     return new_title
-def get_file_name(message):
-    file_name = 0
-    if message.document:
-        try:
-            if type(message.media) == MessageMediaWebPage:
-                return file_name
-            if message.media.document.mime_type == "image/webp":
-                return file_name
-            if message.media.document.mime_type == "application/x-tgsticker":
-                return file_name
-            for i in message.document.attributes:
-                try:
-                    file_name = i.file_name
-                except:
-                    continue
-            if file_name == '':
-                file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
-            else:
-                # 如果文件名中已经包含了标题，则过滤标题
-                if get_equal_rate(caption, file_name) > 0.6:
-                    caption = ""
-                file_name = f'{message.id}-{caption}{file_name}'
-        except:
-            file_name = 0
-    elif message.photo:
-        file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
-    else:
-        return file_name
-    
-    # ************
+
+def get_file_name(message, caption):
+    file_name = ''
     if message.document:
         try:
             if type(message.media) == MessageMediaWebPage:
@@ -144,6 +117,7 @@ def get_file_name(message):
         file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
     else:
         return file_name
+
     return file_name
 
 # 获取相册标题
@@ -296,33 +270,15 @@ async def handler(update):
                     for filter_keyword in filter_list:
                         caption = caption.replace(filter_keyword, "")
                 # 如果文件文件名不是空字符串，则进行过滤和截取，避免文件名过长导致的错误
-                caption = "" if caption == "" else f'{validate_title(caption)} - '[
-                                                   :50]
+                caption = "" if caption == "" else f'{validate_title(caption)} - '[:50]
                 file_name = ''
-                # 如果是文件
+
                 # *******************************************************************
-                if message.document:
-                    if type(message.media) == MessageMediaWebPage:
-                        continue
-                    if message.media.document.mime_type == "image/webp":
-                        continue
-                    if message.media.document.mime_type == "application/x-tgsticker":
-                        continue
-                    for i in message.document.attributes:
-                        try:
-                            file_name = i.file_name
-                        except:
-                            continue
-                    if file_name == '':
-                        file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
-                    else:
-                        # 如果文件名中已经包含了标题，则过滤标题
-                        if get_equal_rate(caption, file_name) > 0.6:
-                            caption = ""
-                        file_name = f'{message.id}-{caption}{file_name}'
-                elif message.photo:
-                    file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
-                else:
+                # 如果是文件
+                file_name = get_file_name(message, caption)
+
+                print(chat_title, file_name)
+                if file_name == '':
                     continue
                 # *******************************************************************
                 await queue.put((message, chat_title, entity, file_name))
@@ -338,7 +294,14 @@ async def all_chat_download(update):
         entity = await client.get_entity(chat_id)
         if entity.id in blacklist:
             return
-        chat_title = entity.title
+        if type(entity) == User:
+            # 发给单独某个人的; 不处理
+            chat_title = entity.username
+            return
+        else:
+            chat_title = entity.title
+
+        
         # 如果是一组媒体
         caption = await get_group_caption(message) if (
                 message.grouped_id and message.text == "") else message.text
@@ -347,34 +310,12 @@ async def all_chat_download(update):
                 caption = caption.replace(fw, '')
         # 如果文件文件名不是空字符串，则进行过滤和截取，避免文件名过长导致的错误
         caption = "" if caption == "" else f'{validate_title(caption)}-'[:50]
-        file_name = ''
-        # 如果是文件
+
         # *******************************************************************
-        if message.document:
-            try:
-                if type(message.media) == MessageMediaWebPage:
-                    return
-                if message.media.document.mime_type == "image/webp":
-                    file_name = f'{message.media.document.id}.webp'
-                if message.media.document.mime_type == "application/x-tgsticker":
-                    file_name = f'{message.media.document.id}.tgs'
-                for i in message.document.attributes:
-                    try:
-                        file_name = i.file_name
-                    except:
-                        continue
-                if file_name == '':
-                    file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
-                else:
-                    # 如果文件名中已经包含了标题，则过滤标题
-                    if get_equal_rate(caption, file_name) > 0.6:
-                        caption = ""
-                    file_name = f'{message.id}-{caption}{file_name}'
-            except:
-                print(message.media)
-        elif message.photo:
-            file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
-        else:
+        # 如果是文件
+        file_name = get_file_name(message, caption)
+
+        if file_name == '':
             return
         # *******************************************************************
         # 过滤文件名称中的广告等词语
