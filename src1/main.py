@@ -6,12 +6,13 @@ import time
 import asyncio
 import asyncio.subprocess
 import logging
+from turtle import tilt
+from xmlrpc.client import boolean
 
 from telethon import TelegramClient, events, errors
 from telethon.tl.types import MessageMediaWebPage, PeerChannel
 
 # ***********************************************************************************#
-print('Stopped!')
 # your telegram api id
 api_id = os.getenv('api_id')  
 # your telegram api hash
@@ -22,27 +23,48 @@ bot_token = os.getenv('bot_token')
 admin_id = os.getenv('admin_id')
 # file save path
 save_path = os.getenv('save_path')
-# set upload file to google drive
-upload_file_set = os.getenv('upload_file_set')
+# set upload file to google drive; 1/0 => True/False 
+upload_file_set = int(os.getenv('upload_file_set'))
+
 # google teamdrive id 如果使用OD，删除''内的内容即可。
 drive_id = os.getenv('drive_id')
 # rclone drive name
 drive_name = os.getenv('drive_name')
 # 同时下载数量
-max_num = os.getenv('max_num')
+max_num = int(os.getenv('max_num'))
 # filter file name/文件名过滤
 filter_list = os.getenv('filter_list')
+if len(filter_list) > 0:
+    filter_list = filter_list.split(",")
+else:
+    filter_list = []
 # filter chat id /过滤某些频道不下载
 blacklist = os.getenv('blacklist')
-# 监控所有你加入的频道，收到的新消息如果包含媒体都会下载，默认关闭
-# download_all_chat = False  
+
+def f(s):
+    return int(s) 
+if len(blacklist) > 0:
+    blacklist = [int(x) for x in blacklist.split(",")]
+else:
+    blacklist = []
+
+# 监控所有你加入的频道，收到的新消息如果包含媒体都会下载，默认关闭; 1/0 => True/False
 download_all_chat = os.getenv('download_all_chat')
 # 过滤文件后缀，可以填jpg、avi、mkv、rar等。
 filter_file_name = os.getenv('filter_file_name')
+if len(filter_file_name) > 0:
+    filter_file_name = filter_file_name.split(",")
+else:
+    filter_file_name = []
 # 自行替换代理设置，如果不需要代理，请删除括号内容
 # proxy = ("socks5", '127.0.0.1', 4444) 
-# docker.for.mac.host.internal
+# mac 用docker启动时，host: docker.for.mac.host.internal
 proxy = os.getenv('proxy')
+if len(proxy) > 0:
+    proxy = tuple(proxy.split(","))
+else:
+    proxy = ()
+
 # ***********************************************************************************#
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -53,10 +75,76 @@ queue = asyncio.Queue()
 
 # 文件夹/文件名称处理
 def validate_title(title):
-    r_str = r"[\/\\\:\*\?\"\<\>\|\n]"  # '/ \ : * ? " < > |'
-    new_title = re.sub(r_str, "_", title)  # 替换为下划线
-    return new_title
+    # r_str = r"[\/\\\:\*\?\"\<\>\|\n]"  # '/ \ : * ? " < > |'
+    r_str = r'[^\:\-\w\u4e00\u9F5A\.]'
+    # 替换为下划线
+    new_title = re.sub(r_str, "_", title) 
 
+    p = re.compile(r'[_]{1,}')
+    # 连续多个下划线合并为一个
+    new_title = re.sub(p,'_', new_title)
+
+    p = re.compile(r'[\.]{1,}')
+    # 连续多个点合并为一个
+    new_title = re.sub(p,'.', new_title)
+    return new_title
+def get_file_name(message):
+    file_name = 0
+    if message.document:
+        try:
+            if type(message.media) == MessageMediaWebPage:
+                return file_name
+            if message.media.document.mime_type == "image/webp":
+                return file_name
+            if message.media.document.mime_type == "application/x-tgsticker":
+                return file_name
+            for i in message.document.attributes:
+                try:
+                    file_name = i.file_name
+                except:
+                    continue
+            if file_name == '':
+                file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
+            else:
+                # 如果文件名中已经包含了标题，则过滤标题
+                if get_equal_rate(caption, file_name) > 0.6:
+                    caption = ""
+                file_name = f'{message.id}-{caption}{file_name}'
+        except:
+            file_name = 0
+    elif message.photo:
+        file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
+    else:
+        return file_name
+    
+    # ************
+    if message.document:
+        try:
+            if type(message.media) == MessageMediaWebPage:
+                return file_name
+            if message.media.document.mime_type == "image/webp":
+                file_name = f'{message.media.document.id}.webp'
+            if message.media.document.mime_type == "application/x-tgsticker":
+                file_name = f'{message.media.document.id}.tgs'
+            for i in message.document.attributes:
+                try:
+                    file_name = i.file_name
+                except:
+                    continue
+            if file_name == '':
+                file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
+            else:
+                # 如果文件名中已经包含了标题，则过滤标题
+                if get_equal_rate(caption, file_name) > 0.6:
+                    caption = ""
+                file_name = f'{message.id}-{caption}{file_name}'
+        except:
+            print(message.media)
+    elif message.photo:
+        file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
+    else:
+        return file_name
+    return file_name
 
 # 获取相册标题
 async def get_group_caption(message):
@@ -111,6 +199,7 @@ async def worker(name):
         if file_name in os.listdir(file_save_path):
             os.remove(os.path.join(file_save_path, file_name))
         print(f"{get_local_time()} 开始下载： {chat_title}-{file_name}")
+
         try:
             loop = asyncio.get_event_loop()
             task = loop.create_task(client.download_media(
@@ -211,6 +300,7 @@ async def handler(update):
                                                    :50]
                 file_name = ''
                 # 如果是文件
+                # *******************************************************************
                 if message.document:
                     if type(message.media) == MessageMediaWebPage:
                         continue
@@ -224,16 +314,17 @@ async def handler(update):
                         except:
                             continue
                     if file_name == '':
-                        file_name = f'{message.id} - {caption}.{message.document.mime_type.split("/")[-1]}'
+                        file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
                     else:
                         # 如果文件名中已经包含了标题，则过滤标题
                         if get_equal_rate(caption, file_name) > 0.6:
                             caption = ""
-                        file_name = f'{message.id} - {caption}{file_name}'
+                        file_name = f'{message.id}-{caption}{file_name}'
                 elif message.photo:
-                    file_name = f'{message.id} - {caption}{message.photo.id}.jpg'
+                    file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
                 else:
                     continue
+                # *******************************************************************
                 await queue.put((message, chat_title, entity, file_name))
                 last_msg_id = message.id
         await bot.send_message(admin_id, f'{chat_title} all message added to task queue, last message is：{last_msg_id}')
@@ -255,9 +346,10 @@ async def all_chat_download(update):
             for fw in filter_list:
                 caption = caption.replace(fw, '')
         # 如果文件文件名不是空字符串，则进行过滤和截取，避免文件名过长导致的错误
-        caption = "" if caption == "" else f'{validate_title(caption)} - '[:50]
+        caption = "" if caption == "" else f'{validate_title(caption)}-'[:50]
         file_name = ''
         # 如果是文件
+        # *******************************************************************
         if message.document:
             try:
                 if type(message.media) == MessageMediaWebPage:
@@ -272,18 +364,19 @@ async def all_chat_download(update):
                     except:
                         continue
                 if file_name == '':
-                    file_name = f'{message.id} - {caption}.{message.document.mime_type.split("/")[-1]}'
+                    file_name = f'{message.id}-{caption}.{message.document.mime_type.split("/")[-1]}'
                 else:
                     # 如果文件名中已经包含了标题，则过滤标题
                     if get_equal_rate(caption, file_name) > 0.6:
                         caption = ""
-                    file_name = f'{message.id} - {caption}{file_name}'
+                    file_name = f'{message.id}-{caption}{file_name}'
             except:
                 print(message.media)
         elif message.photo:
-            file_name = f'{message.id} - {caption}{message.photo.id}.jpg'
+            file_name = f'{message.id}-{caption}{message.photo.id}.jpg'
         else:
             return
+        # *******************************************************************
         # 过滤文件名称中的广告等词语
         for filter_keyword in filter_list:
             file_name = file_name.replace(filter_keyword, "")
@@ -292,17 +385,17 @@ async def all_chat_download(update):
 
 
 if __name__ == '__main__':
-    print(proxy)
-
-    exit
+    print("proxy", proxy)
 
     bot = TelegramClient('telegram_channel_downloader_bot',
                          api_id, api_hash, proxy=proxy).start(bot_token=str(bot_token))
+    bot.add_event_handler(handler)
+
     client = TelegramClient(
         'telegram_channel_downloader', api_id, api_hash, proxy=proxy).start()
-    bot.add_event_handler(handler)
     if download_all_chat:
         client.add_event_handler(all_chat_download)
+
     tasks = []
     try:
         for i in range(max_num):

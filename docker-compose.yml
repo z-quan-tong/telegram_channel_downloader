@@ -5,7 +5,7 @@ services:
     image: tg_downloader:latest
     container_name: tg
     volumes:
-    - ./src/:/srv/
+    - ./src1/:/srv/
     # command: ["python", "tg_channel_downloader.py"]
     env_file:
     - .env
