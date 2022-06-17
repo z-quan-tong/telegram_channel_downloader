@@ -76,9 +76,10 @@ queue = asyncio.Queue()
 # 文件夹/文件名称处理
 def validate_title(title):
     # r_str = r"[\/\\\:\*\?\"\<\>\|\n]"  # '/ \ : * ? " < > |'
-    r_str = r'[^\:\-\w\u4e00\u9F5A\.]'
+    r_str = r'[^\-\w\u4e00\u9F5A]'
     # 替换为下划线
     new_title = re.sub(r_str, "_", title) 
+    new_title = re.sub(r_str, "_", new_title) 
 
     p = re.compile(r'[_]{1,}')
     # 连续多个下划线合并为一个
