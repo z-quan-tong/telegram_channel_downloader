@@ -88,6 +88,9 @@ def validate_title(title):
     p = re.compile(r'[\.]{1,}')
     # 连续多个点合并为一个
     new_title = re.sub(p,'.', new_title)
+
+    # 去除空白符
+    new_title = "".join(new_title.split())
     return new_title
 
 def get_file_name(message, caption):
