@@ -1,58 +1,15 @@
 # !/usr/bin/env python3
-import os
 import asyncio
 import asyncio.subprocess
-import logging
+from pydoc import cli
 from turtle import tilt
 
-from telethon import TelegramClient, events, errors
+from telethon import TelegramClient, events
 from telethon.tl.types import PeerChannel, User
 
-import config, tools
+import config, tools, worker
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.WARNING)
-logger = logging.getLogger(__name__)
 queue = asyncio.Queue()
-
-
-async def worker(name):
-    while True:
-        queue_item = await queue.get()
-        message = queue_item[0]
-        chat_title = queue_item[1]
-        entity = queue_item[2]
-        file_name = queue_item[3]
-        for filter_file in config.filter_file_name:
-            if file_name.endswith(filter_file):
-                return
-        dirname =tools.validate_title(f'{chat_title}_{entity.id}_')
-        datetime_dir_name = message.date.strftime("%Y_%m")
-        file_save_path = os.path.join(config.save_path, dirname, datetime_dir_name)
-        if not os.path.exists(file_save_path):
-            os.makedirs(file_save_path)
-        # 判断文件是否在本地存在
-        if file_name in os.listdir(file_save_path):
-            os.remove(os.path.join(file_save_path, file_name))
-        print(f"{tools.get_local_time()} 开始下载： {chat_title}-{file_name}")
-
-        try:
-            loop = asyncio.get_event_loop()
-            task = loop.create_task(client.download_media(
-                message, os.path.join(file_save_path, file_name)))
-            await asyncio.wait_for(task, timeout=3600)
-        except (errors.rpc_errors_re.FileReferenceExpiredError, asyncio.TimeoutError):
-            logging.warning(f'{tools.get_local_time()} - {file_name} 出现异常，重新尝试下载！')
-            async for new_message in client.iter_messages(entity=entity, offset_id=message.id - 1, reverse=True,
-                                                          limit=1):
-                await queue.put((new_message, chat_title, entity, file_name))
-        except Exception as e:
-            print(f"{tools.get_local_time()} - {file_name} {e.__class__} {e}")
-            await bot.send_message(config.admin_id, f'{e.__class__}!\n\n{e}\n\n{file_name}')
-        finally:
-            queue.task_done()
-
 
 
 @events.register(events.NewMessage(pattern='/start', from_users=config.admin_id))
@@ -147,7 +104,6 @@ async def all_chat_download(update):
             return
         else:
             chat_title = entity.title
-
         
         # 如果是一组媒体
         caption = await tools.get_group_caption(message,client) if (
@@ -183,10 +139,17 @@ if __name__ == '__main__':
         client.add_event_handler(all_chat_download)
 
     tasks = []
+
+    ctx = {
+        client: client,
+        bot: bot,
+        queue: queue
+    }
+
     try:
         for i in range(config.max_num):
             loop = asyncio.get_event_loop()
-            task = loop.create_task(worker(f'worker-{i}'))
+            task = loop.create_task(worker.worker(f'worker-{i}', ctx))
             tasks.append(task)
         print('Successfully started (Press Ctrl+C to stop)')
         client.run_until_disconnected()

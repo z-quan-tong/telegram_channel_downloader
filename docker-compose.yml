@@ -6,7 +6,7 @@ services:
     container_name: tg
     volumes:
     - ./src1/:/srv/
-    - /root/tg_downloads/:/srv/downloads
-    command: ["python", "main.py"]
+    - ./.docker.volumes/tg_downloads/:/srv/downloads
+    # command: ["python", "main.py"]
     env_file:
     - .env

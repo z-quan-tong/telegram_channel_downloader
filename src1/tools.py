@@ -1,6 +1,7 @@
 import difflib
 import re
 import time
+import logging
 
 from telethon.tl.types import MessageMediaWebPage
 
@@ -90,3 +91,10 @@ def bytes_to_string(byte_count):
     return '{:.2f}{}'.format(
         byte_count, [' bytes', 'KB', 'MB', 'GB', 'TB'][suffix_index]
     )
+
+
+
+# logger
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.WARNING)
+logger = logging.getLogger(__name__)
