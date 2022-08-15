@@ -160,7 +160,7 @@ async def all_chat_download(update):
 
         # *******************************************************************
         # 如果是文件
-        file_name = tools.et_file_name(message, caption)
+        file_name = tools.get_file_name(message, caption)
 
         if file_name == '':
             return
