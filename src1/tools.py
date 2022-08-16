@@ -3,7 +3,7 @@ import re
 import time
 import logging
 
-from telethon.tl.types import MessageMediaWebPage, DocumentAttributeVideo
+from telethon.tl.types import MessageMediaWebPage, DocumentAttributeVideo, MessageMediaDocument
 
 import config
 
@@ -117,6 +117,10 @@ def bytes_to_string(byte_count):
 # 选择合适的文件
 def check_media(media):
     flag = 1
+
+    if not isinstance(media, MessageMediaDocument):
+        return 0
+
     size = media.document.size
 
     if size < config.size_min or size > config.size_max:
