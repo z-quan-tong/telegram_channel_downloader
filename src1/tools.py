@@ -3,7 +3,9 @@ import re
 import time
 import logging
 
-from telethon.tl.types import MessageMediaWebPage
+from telethon.tl.types import MessageMediaWebPage, DocumentAttributeVideo
+
+import config
 
 
 # 文件夹/文件名称处理
@@ -28,7 +30,27 @@ def validate_title(title):
 
     return new_title
 
-def get_file_name(message, caption):
+
+async def get_file_name(ctx, message):
+    # 如果是一组媒体
+    caption = await get_group_caption(ctx, message) if (
+            message.grouped_id and message.text == "") else message.text
+    # 过滤文件名称中的广告等词语
+    if len(config.filter_list) and caption != "":
+        for filter_keyword in config.filter_list:
+            caption = caption.replace(filter_keyword, "")
+
+    if len(validate_title(caption)) > 40:
+        return ""
+    # 如果文件文件名不是空字符串，则进行过滤和截取，避免文件名过长导致的错误
+    caption = "" if caption == "" else f'{validate_title(caption)} - '[:50]
+    # *******************************************************************
+    # 如果是文件
+    file_name = format_file_name(message, caption)
+    return file_name
+
+
+def format_file_name(message, caption):
     file_name = ''
     if message.document:
         try:
@@ -60,10 +82,10 @@ def get_file_name(message, caption):
     return file_name
 
 # 获取相册标题
-async def get_group_caption(message, client):
+async def get_group_caption(ctx, message):
     group_caption = ""
-    entity = await client.get_entity(message.to_id)
-    async for msg in client.iter_messages(entity=entity, reverse=True, offset_id=message.id - 9, limit=10):
+    entity = await ctx.client.get_entity(message.to_id)
+    async for msg in ctx.client.iter_messages(entity=entity, reverse=True, offset_id=message.id - 9, limit=10):
         if msg.grouped_id == message.grouped_id:
             if msg.text != "":
                 group_caption = msg.text
@@ -92,7 +114,44 @@ def bytes_to_string(byte_count):
         byte_count, [' bytes', 'KB', 'MB', 'GB', 'TB'][suffix_index]
     )
 
+# 选择合适的文件
+def check_media(media):
+    flag = 1
+    size = media.document.size
 
+    if size < config.size_min or size > config.size_max:
+        flag = 0
+
+    for att in media.document.attributes:
+        if isinstance(att, DocumentAttributeVideo):
+            dur = att.duration
+            if dur > config.duration_max or dur < config.duration_min:
+                flag = 0
+
+    if media.document.mime_type != 'video/mp4':
+        flag = 0
+
+    print("checkresult", flag)
+    return flag
+
+# 从chat中获取历史消息
+async def load_message_from_chat(ctx, entity, offset_id):
+    chat_title = entity.title
+    print(f'{get_local_time()} - 开始下载：{chat_title}({entity.id}) - {offset_id}')
+    async for message in ctx.client.iter_messages(entity, offset_id=offset_id, reverse=True, limit=None):
+        if message.media and check_media(message.media):
+            file_name = await get_file_name(message, ctx.client)
+
+            print(chat_title, file_name)
+            if file_name == '':
+                continue
+            # *******************************************************************
+            await ctx.queue.put((message, chat_title, entity, file_name))
+    await ctx.bot.send_message(config.admin_id, f'{chat_title} all message added to task queue, last message is：{message.id}')
+
+# 保存下载进度，避免重复下载
+async def save_download_process():
+    print(1)
 
 # logger
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',

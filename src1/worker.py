@@ -7,7 +7,6 @@ import config, tools
 
 async def worker(name, ctx):
     while True:
-        print("before 开始下载")
         queue_item = await ctx.queue.get()
         message = queue_item[0]
         chat_title = queue_item[1]

@@ -45,3 +45,10 @@ if len(proxy) > 0:
     proxy = tuple(proxy.split(","))
 else:
     proxy = ()
+
+
+size_min = 80 * 1024 * 1024
+size_max = 500 * 1024 * 1024
+
+duration_min = 300
+duration_max = 1800
