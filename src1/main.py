@@ -9,9 +9,24 @@ from telethon.tl.types import PeerChannel, User, DocumentAttributeVideo
 
 import config, tools, worker
 
+class Context:
+    def __init__(self, client, bot, queue):
+        self.client = client
+        self.bot = bot
+        self.queue = queue
+
+
 queue = asyncio.Queue()
 
+bot = TelegramClient(
+    'tg_bot', config.api_id, config.api_hash, 
+    proxy=config.proxy).start(bot_token=str(config.bot_token))
 
+client = TelegramClient(
+    'tg_client', config.api_id, config.api_hash, proxy=config.proxy).start()
+
+
+ctx = Context(client, bot, queue)
 
 # @events.register(events.NewMessage(pattern='/start', from_users=config.admin_id))
 @events.register(events.NewMessage(pattern='/start'))
@@ -53,7 +68,7 @@ async def handler(update):
         return
 
     if chat_title:
-        await tools.load_message_from_chat(entity, offset_id)
+        await tools.load_message_from_chat(ctx, entity, offset_id)
 
 
 @events.register(events.NewMessage())
@@ -82,25 +97,17 @@ async def all_chat_download(update):
 
 
 if __name__ == '__main__':
-    bot = TelegramClient(
-        'tg_bot', config.api_id, config.api_hash, 
-        proxy=config.proxy).start(bot_token=str(config.bot_token))
+
 
     bot.add_event_handler(handler)
 
-    client = TelegramClient(
-        'tg_client', config.api_id, config.api_hash, proxy=config.proxy).start()
+
 
     if config.download_all_chat:
         client.add_event_handler(all_chat_download)
 
     tasks = []
 
-    ctx = {
-        client: client,
-        bot: bot,
-        queue: queue
-    }
 
     try:
         for i in range(config.max_num):
