@@ -15,7 +15,9 @@ async def worker(name, ctx):
         for filter_file in config.filter_file_name:
             if file_name.endswith(filter_file):
                 return
-        dirname =tools.validate_title(f'{chat_title}_{entity.id}_')
+
+        dirname =tools.validate_title(f'{entity.id}_{entity.username}_')
+
         datetime_dir_name = message.date.strftime("%Y_%m")
         file_save_path = os.path.join(config.save_path, dirname, datetime_dir_name)
         if not os.path.exists(file_save_path):

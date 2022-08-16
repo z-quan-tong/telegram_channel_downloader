@@ -4,3 +4,4 @@
 *.session
 downloads
 .docker.volumes
+__pycache__
