@@ -16,7 +16,7 @@ async def worker(name, ctx):
             if file_name.endswith(filter_file):
                 return
 
-        dirname =tools.validate_title(f'{entity.id}_{entity.username}_')
+        dirname =tools.validate_title(f'{entity.id}_{entity.username}')
 
         datetime_dir_name = message.date.strftime("%Y_%m")
         file_save_path = os.path.join(config.save_path, dirname, datetime_dir_name)

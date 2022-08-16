@@ -144,7 +144,7 @@ async def load_message_from_chat(ctx, entity, offset_id):
     print(f'{get_local_time()} - 开始下载：{chat_title}({entity.id}) - {offset_id}')
     async for message in ctx.client.iter_messages(entity, offset_id=offset_id, reverse=True, limit=None):
         if message.media and check_media(message.media):
-            file_name = await get_file_name(message, ctx.client)
+            file_name = await get_file_name(ctx, message)
 
             print(chat_title, file_name)
             if file_name == '':
