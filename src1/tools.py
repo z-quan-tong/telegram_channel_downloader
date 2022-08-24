@@ -116,27 +116,29 @@ def bytes_to_string(byte_count):
 
 # 选择合适的文件
 def check_media(media):
-    flag = 1
+    return 1
+# def check_media(media):
+#     flag = 1
 
-    if not isinstance(media, MessageMediaDocument):
-        return 0
+#     if not isinstance(media, MessageMediaDocument):
+#         return 0
 
-    size = media.document.size
+#     size = media.document.size
 
-    if size < config.size_min or size > config.size_max:
-        flag = 0
+#     if size < config.size_min or size > config.size_max:
+#         flag = 0
 
-    for att in media.document.attributes:
-        if isinstance(att, DocumentAttributeVideo):
-            dur = att.duration
-            if dur > config.duration_max or dur < config.duration_min:
-                flag = 0
+#     for att in media.document.attributes:
+#         if isinstance(att, DocumentAttributeVideo):
+#             dur = att.duration
+#             if dur > config.duration_max or dur < config.duration_min:
+#                 flag = 0
 
-    if media.document.mime_type != 'video/mp4':
-        flag = 0
+#     if media.document.mime_type != 'video/mp4':
+#         flag = 0
 
-    print("checkresult", flag)
-    return flag
+#     print("checkresult", flag)
+#     return flag
 
 # 从chat中获取历史消息
 async def load_message_from_chat(ctx, entity, offset_id):
